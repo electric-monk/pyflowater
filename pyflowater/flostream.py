@@ -69,6 +69,6 @@ class FloListener:
         if not self._watch:
             # Thread started before stop() was called, so bail out now
             return
-        self._heartbeat_func()
         self._heartbeat = threading.Timer(FLO_HEARTBEAT_DELAY, self._do_heartbeat)
         self._heartbeat.start()
+        self._heartbeat_func()
