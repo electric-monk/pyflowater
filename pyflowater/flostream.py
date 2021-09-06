@@ -3,6 +3,8 @@
 import requests
 import json
 import threading
+import datetime
+import types
 from google.cloud import firestore
 from google.oauth2.credentials import Credentials
 
@@ -20,12 +22,21 @@ def _get_token_info(token):
     resp = requests.post(url, headers=headers, data=data)
     return resp.json()
 
+def _compute_expiry(value):
+    return datetime.datetime.now() + datetime.timedelta(seconds=int(value))
+
+def _flo_refresh(self, request):
+    tinfo = _get_token_info(self._flo_token_func())
+    self.token = tinfo['idToken']
+    self._refresh_token = tinfo['refreshToken']
+    self.expiry = _compute_expiry(tinfo['expiresIn'])
+
 class FloListener:
     """Flo firestore listener class."""
 
     def __init__(self, heartbeat, token, deviceId, callback):
         self._heartbeat_func = heartbeat
-        self._token = token
+        self._token_func = token
         self._deviceId = deviceId
         self._callback = callback
         self._watch = None
@@ -44,8 +55,10 @@ class FloListener:
         if self._watch:
             return
         if not self._client:
-            tinfo = _get_token_info(self._token)
-            creds = Credentials(tinfo['idToken'], refresh_token=tinfo['refreshToken'])
+            tinfo = _get_token_info(self._token_func())
+            creds = Credentials(tinfo['idToken'], refresh_token=tinfo['refreshToken'], expiry=_compute_expiry(tinfo['expiresIn']))
+            creds._flo_token_func = self._token_func
+            creds.refresh = types.MethodType(_flo_refresh, creds)
             self._client = firestore.Client(project=FLO_FIRESTORE_PROJECT, credentials=creds)
         if not self._doc_ref:
             self._doc_ref = self._client.collection('devices').document(self._deviceId)

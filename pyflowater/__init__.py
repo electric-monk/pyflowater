@@ -306,14 +306,15 @@ class PyFlo(object):
     def get_real_time_listener(self, mac_address, callback):
         """Begin listening for the specified device (note MAC address, not ID), sending results to the specified callback.
 
-        Callback is a function that accepts a single argument containing the dictionary returned by the Flo service, of the form:
+        Callback is a function that accepts a single argument containing the dictionary returned by the Flo service.
 
+        Returns a FloListener. You must call start() on the returned instance to begin receiving callbacks."""
+        return FloListener(self._do_heartbeat, self._get_firestore_token, mac_address, callback)
 
-
-        Returneds a FloListener. You must call start() on the returned instance to begin receiving callbacks."""
+    def _get_firestore_token(self):
         url = f"{FLO_V2_API_BASE}/session/firestore"
         data = self.query(url, method=METHOD_POST)
-        return FloListener(self._do_heartbeat, data['token'], mac_address, callback)
+        return data['token']
 
     def _do_heartbeat(self):
         self.query(FLO_PRESENCE_HEARTBEAT, method=METHOD_POST)
